@@ -18,6 +18,8 @@ UDP_OFFER_SIZE=7
 
 grading=False
 
+connect_to_only_my_server=False
+
 #an initialization of the client
 #return the name
 def startup():
@@ -25,7 +27,7 @@ def startup():
     print("Please choose a name:")
     name=input()
     print("You chose a name: "+name)
-    print("Client started, listening for offer requests...")
+    print("Client started")
     return name
 
 #checks if an offer is legal
@@ -35,8 +37,8 @@ def is_legal_udp_offer(offer):
     if offer[1] != UDP_OFFER_TYPE:
         return False
     #just for checking if MY server sends udp offers (debugging)
-    #if offer[2] != 2151:#temp
-    #    return False
+    if connect_to_only_my_server and offer[2] != 2151:
+        return False
     return True
 
 #gets a port from an offer
@@ -46,6 +48,7 @@ def decode_port_from_offer(offer):
 #waits for a legal offer
 #returns address and port
 def look_for_servers():
+    print("Looking for servers...")
     #make a udp socket
     udp_socket=socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
@@ -57,7 +60,8 @@ def look_for_servers():
     while not binded:
         try:
             if grading:
-                udp_socket.bind((get_if_addr("eth2"), UDP_PORT))
+                #udp_socket.bind((get_if_addr("eth2"), UDP_PORT))
+                udp_socket.bind(("", UDP_PORT))
             else:
                 udp_socket.bind(("", UDP_PORT))
                 #udp_socket.bind((get_if_addr("eth1"), UDP_PORT))
@@ -84,7 +88,7 @@ def look_for_servers():
 #or None if failed
 def try_connect_to_server(address, tcp_port):
     tcp_socket=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    tcp_socket.settimeout(1)
+    tcp_socket.settimeout(2)
     try:
         tcp_socket.connect((address[0], tcp_port))
         return tcp_socket
@@ -148,6 +152,8 @@ def play(tcp_socket, old_settings):
             stop=True
         elif msg != "":
             print(msg)
+            #enable this only if the server can only send 1 message:
+            stop=True
         #check the connection by catching an exception when sending a message to a closed (by the server) socket
         #for some reson it refuses to send an empty string, which makes it unusable
         #if not tcp_send(""):
@@ -166,9 +172,10 @@ def play(tcp_socket, old_settings):
 
 #function to handle the connection to the server
 def connection_handle(tcp_socket, name):
-    print("connected")
+    print("Connected to the server. Waiting for the game...")
     #try sending the name
     if not tcp_send(tcp_socket, name+"\n"):
+        print("Failed to send the name")
         return
     #wait for the game start
     tcp_socket.settimeout(11)

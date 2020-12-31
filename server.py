@@ -6,6 +6,7 @@ from scapy.arch import get_if_addr
 import struct
 from colorama import Fore
 from colorama import Style
+import sys
 
 UDP_PORT=13117
 TCP_PORT=2151
@@ -21,10 +22,7 @@ keys_buffer=([], [])
 
 grading=False
 
-COLOR_CYAN="\033[96m"
-COLOR_YELLOW="\033[93m"
-
-COLOR_END="\033[0m"
+team_colors=(Fore.CYAN, Fore.GREEN)
 
 def set_color(msg, color):
     return color+msg+COLOR_END
@@ -46,11 +44,12 @@ def make_tcp_server_socket():
     while not binded:
         try:
             if grading:
-                tcp_server_socket.bind((get_if_addr("eth2"), TCP_PORT))
+                #tcp_server_socket.bind((get_if_addr("eth2"), TCP_PORT))
+                tcp_server_socket.bind(("", TCP_PORT))
             else:
                 tcp_server_socket.bind(("", TCP_PORT))
             binded=True
-            time.sleep(0.1)
+            time.sleep(1)
         except:
             pass
     print("opened the server socket")
@@ -71,11 +70,11 @@ def tcp_send(my_socket, msg):
 def start_message():
     while not finished_accepting:
         time.sleep(0.1)
-    result=f"\n{Fore.YELLOW}Wlcome to Igor's Server!{Style.RESET_ALL}"
-    result+=f"The game has started!\n{Fore.CYAN}Team 1{Style.RESET_ALL}:\n"
+    result=f"\n{Fore.YELLOW}Welcome to Igor's Server!{Style.RESET_ALL}\n"
+    result+=f"The game has started!\n{team_colors[0]}Team 1{Style.RESET_ALL}:\n"
     for client_name in player_names[0]:
         result+=client_name+"\n"
-    result+=f"--------------\n{Fore.GREEN}Team 2{Style.RESET_ALL}:\n"
+    result+=f"--------------\n{team_colors[1]}Team 2{Style.RESET_ALL}:\n"
     for client_name in player_names[1]:
         result+=client_name+"\n"
     result+="\nType as fast as you can!"
@@ -152,8 +151,16 @@ def send_offers(udp_socket):
         time.sleep(1)
 
 #what the main thread have to do while the game is on
-def game():
-    time.sleep(GAME_LENGTH)
+def game(tcp_server_socket):
+    global is_game
+    try:
+        time.sleep(GAME_LENGTH)
+    except:
+        is_game=False
+        global game_result
+        game_result="server terminated"
+        tcp_server_socket.close()
+        sys.exit()
 
 #checks who won...
 def check_who_won():
@@ -171,9 +178,9 @@ def make_result_message():
     if winning_id == -1:
         result+="It's a draw!\n"
     else:
-        result+="The team "+str(winning_id+1)+" won!\n"
-    result+=f"{Fore.CYAN}Team 1{Style.RESET_ALL}: "+str(len(keys_buffer[0]))+" keys\n"
-    result+=f"{Fore.GREEN}Team 2{Style.RESET_ALL}: "+str(len(keys_buffer[1]))+" keys\n\n"
+        result+=f"The {team_colors[winning_id]}team "+str(winning_id+1)+f"{Style.RESET_ALL} won!\n"
+    result+=f"{team_colors[0]}Team 1{Style.RESET_ALL}: "+str(len(keys_buffer[0]))+" keys\n"
+    result+=f"{team_colors[1]}Team 2{Style.RESET_ALL}: "+str(len(keys_buffer[1]))+" keys\n\n"
     return result
 
 #logic after the game
@@ -208,7 +215,7 @@ def main():
         #dont start the game if there are no players
         if len(player_names[0]) != 0 or len(player_names[1]) != 0:
             #game
-            game()
+            game(tcp_server_socket)
             post_game()
     input()
 
